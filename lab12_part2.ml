@@ -28,8 +28,8 @@ Part 2: Gensym
 
 The `gensym` function (short for "GENerate SYMbol") has a long history
 dating back to the early days of the programming language LISP.  You
-can find it as early as the 1974 MacLISP manual (page 53).
-http://www.softwarepreservation.org/projects/LISP/MIT/Moon-MACLISP_Reference_Manual-Apr_08_1974.pdf
+can find it as early as the 1974 MacLISP manual (page
+53). <https://url.cs51.io/lisp-gensym>
 
 (What is LISP you ask? LISP is an untyped functional programming
 language invented by John McCarthy in 1958, which he based directly on
