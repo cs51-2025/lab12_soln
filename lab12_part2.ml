@@ -14,83 +14,185 @@ building mutable data structures and in imperative programming more
 generally. It also gives further practice in using modules to abstract
 data types.
 
-There are 4 total parts to this lab. Please refer to the following
+There are three total parts to this lab. Please refer to the following
 files to complete all exercises:
 
-   lab12_part1.ml -- Part 1: Fun with references 
--> lab12_part2.ml -- Part 2: Gensym (this file)
-   lab12_part3.ml -- Part 3: Appending mutable lists
-   lab12_part4.ml -- Part 4: Adding serialization to imperative queues
+   lab12_part1.ml -- Part 1: Fun with references (including `gensym`) 
+-> lab12_part2.ml -- Part 2: Appending mutable lists
+   lab12_part3.ml -- Part 3: Adding serialization to imperative queues
  *)
 
 (*====================================================================
-Part 2: Gensym
+Part 2: Appending mutable lists
 
-The `gensym` function (short for "GENerate SYMbol") has a long history
-dating back to the early days of the programming language LISP.  You
-can find it as early as the 1974 MacLISP manual (page
-53). <https://url.cs51.io/lisp-gensym>
+Recall the definition of the mutable list type from Section 15.4 of
+the textbook: *)
 
-(What is LISP you ask? LISP is an untyped functional programming
-language invented by John McCarthy in 1958, which he based directly on
-Alonzo Church's lambda calculus. It is one of the most influential
-programming languages ever devised. You could do worse than spend some
-time learning the Scheme dialect of LISP, which, by the way, will be
-made much easier by having learned a typed functional language --
-OCaml.)
+type 'a mlist = 'a mlist_internal ref
+ and 'a mlist_internal = 
+   | Nil
+   | Cons of 'a * 'a mlist ;;
 
-The `gensym` function takes a string and generates a new string by
-suffixing a unique number, which is initially 0 but is incremented
-each time `gensym` is called.
+(* Mutable lists are just like regular lists, except that each Nil or
+cons is a *reference* to a mutable list, so that it can be updated. *)
 
-For example,
+(*....................................................................
+Exercise 5: Construct a function `mlist_empty : unit -> int mlist` that
+returns an empty `mlist`.
+ *)
 
-    # gensym "x" ;;
-    - : string = "x0"
-    # gensym "x" ;;
-    - : string = "x1"
-    # gensym "something" ;;
-    - : string = "something2"
-    # gensym (gensym "x") ;;
-    - : string = "x34"
+let mlist_empty () : int mlist =
+  ref Nil ;;
 
-There are many uses of `gensym`, one of which is to generate new
-unique variable names in an interpreter for a programming language. In
-fact, you'll need `gensym` for just this purpose in completing the
-final project for CS51, so this is definitely not wasted effort.
+(* Now call the function `mlist_empty` within the REPL. You'll notice
+that the value returned looks like a record structure with a single
+`contents` field. That's because internally, OCaml implements `ref`
+values as mutable records. *)
+       
+(*....................................................................
+Exercise 6: Construct a function `mlist_42 : unit -> int mlist` that
+returns an `mlist` with the single integer element 42.
+ *)
 
-......................................................................
-Exercise 4: Complete the implementation of `gensym`. As usual, you
-shouldn't feel beholden to how the definition is introduced in the
-skeleton code below. (We'll stop mentioning this from now on.)
+let mlist_42 () : int mlist =
+  ref (Cons (42, ref Nil)) ;;
+
+(* Now call the function `mlist_42` within the REPL. Again, you'll see
+the telltale record structure with a single `contents` field. In the
+future, you'll know why that is.
+
+It's cumbersome to manually build up these mutable lists. Let's nuild
+a function that allows us to generate mutable versions of regular
+(immutable) lists. *)
+       
+(*....................................................................
+Exercise 7: Define a polymorphic function `mlist_of_list` that
+converts a regular list to a mutable list, with behavior like this:
+
+    # let xs = mlist_of_list ["a"; "b"; "c"] ;;
+    val xs : string mlist =
+      {contents = Cons ("a",
+         {contents = Cons ("b", 
+            {contents = Cons ("c", 
+               {contents = Nil})})})}
+
+    # let ys = mlist_of_list [1; 2; 3] ;;
+    val ys : int mlist =
+      {contents = Cons (1, 
+         {contents = Cons (2,
+            {contents = Cons (3, 
+               {contents = Nil})})})}
 ....................................................................*)
 
-let gensym : string -> string =
-  let suffix = ref 0 in
-  fun str ->
-    let symbol = str ^ string_of_int !suffix in
-    suffix := !suffix + 1;
-    symbol ;;
+let rec mlist_of_list (lst : 'a list) : 'a mlist =
+  match lst with
+  | [] -> ref Nil
+  | hd :: tl -> ref (Cons (hd, mlist_of_list tl)) ;;
 
-(* Taking advantage of the `incr` function implemented above and also
-   available as part of the `Stdlib` module, we can have
+(*....................................................................
+Exercise 8: Define a function `mlength` to compute the length of an
+`mlist`. Try to do this without looking at the solution that is given
+in the book. (Don't worry about cycles...yet.)
 
-    let gensym : string -> string =
-      let suffix = ref 0 in
-      fun str -> 
-        let symbol = str ^ string_of_int !suffix in
-        incr suffix;
-        symbol ;;
+    # mlength (ref Nil) ;;
+    - : int = 0
+    # mlength (mlist_of_list [1; 2; 3; 4]) ;;
+    - : int = 4
+....................................................................*)
 
-   An alternative implementation performs the incrementation before
-   the string formation, so that the return value need not be stored
-   explicitly. But the initial value for the counter must start one
-   earlier.
+let rec mlength (mlst : 'a mlist) : int =
+  match !mlst with
+  | Nil -> 0
+  | Cons (_hd, tl) -> 1 + mlength tl ;;
 
-    let gensym : string -> string =
-      let suffix = ref ~-1 in
-      fun str ->
-        incr suffix;
-        str ^ string_of_int !suffix ;;
-   *)
+(*....................................................................
+Exercise 9: What is the time complexity of the `mlength` function in
+terms of the length of its list argument? Provide the tightest
+complexity class, recorded using the technique from lab 10.
+....................................................................*)
+
+type complexity =
+  | Unanswered
+  | Constant
+  | Logarithmic
+  | Linear
+  | LogLinear
+  | Quadratic
+  | Cubic
+  | Exponential ;;
+  
+(* ANSWER: The `length` function is linear in the length of its
+   argument: O(n). *)
+let length_complexity : complexity = Linear
+
+(*....................................................................
+Exercise 10: Now, define a function `mappend` that takes a first
+mutable list and a second mutable list and, as a side effect, causes
+the first to *become* (as a side effect) the appending of the two
+lists. A question to think about before you get started:
+
+    What is an appropriate return type for the `mappend` function?
+    (You can glean our intended answer from the examples below, but
+    try to think it through yourself first.)
+
+Examples of use:
+
+    # let m1 = mlist_of_list [1; 2; 3] ;;
+    val m1 : int mlist =
+      {contents = Cons (1,
+         {contents = Cons (2,
+            {contents = Cons (3,
+               {contents = Nil})})})}
+
+    # let m2 = mlist_of_list [4; 5; 6] ;;
+    val m2 : int mlist =
+      {contents = Cons (4, 
+         {contents = Cons (5,
+            {contents = Cons (6, 
+               {contents = Nil})})})}
+
+    # mlength m1 ;;
+    - : int = 3
+
+    # mappend m1 m2 ;;
+    - : unit = ()
+
+    # mlength m1 ;;
+    - : int = 6
+
+    # m1 ;;
+    - : int mlist =
+    {contents = Cons (1,
+       {contents = Cons (2,
+          {contents = Cons (3,
+             {contents = Cons (4,
+                {contents = Cons (5, 
+                   {contents = Cons (6, 
+                      {contents = Nil})})})})})})}
+....................................................................*)
+
+(* Answer to thought question:
+
+    What is an appropriate return type for the `mappend` function?
+    (You can glean our intended answer from the examples below, but
+    try to think it through yourself first.)
+
+      ANSWER: Since `mappend` is called for its side effect, `unit` is
+      the appropriate return type.
+ *)
+       
+let rec mappend (xs : 'a mlist) (ys : 'a mlist) : unit =
+  match !xs with
+  | Nil -> xs := !ys
+  | Cons (_hd, tl) -> mappend tl ys ;;
+
+(* What happens when you evaluate the following expressions
+   sequentially in order?
+
+      # let m = mlist_of_list [1; 2; 3] ;;
+      # mappend m m ;;
+      # m ;;
+      # mlength m ;;
+
+   Do you understand what's going on? *)
 
